@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "shadow-coo-e2e"
+version = "1.0.0"
+description = "End-to-end tests for the Shadow COO platform"
+requires-python = ">=3.11"
+
+dependencies = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.25.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg[binary]>=3.1.0",
+    "neo4j>=5.0.0",
+    "structlog>=23.2.0",
+    "tenacity>=8.2.0",
+    "python-dotenv>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+markers = [
+    "e2e: end-to-end tests that require running services",
+    "requires_llm: tests that call an LLM (costs money, non-deterministic output)",
+    "slow: tests that take more than 30 seconds",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["tests"]
