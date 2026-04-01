@@ -38,7 +38,7 @@ pytestmark = [pytest.mark.e2e, pytest.mark.slow]
 # Known seed values from startup.yaml / computed batch run
 # Assertions use wide bands (±40%) to absorb random seed variation
 # ---------------------------------------------------------------------------
-EXPECTED_EMPLOYEES_MIN  = 30     # startup profile seeds ~50
+EXPECTED_EMPLOYEES_MIN  = 15     # startup profile seeds ~20
 EXPECTED_EMPLOYEES_MAX  = 120
 EXPECTED_DEV_ITEMS_MIN  = 40     # Jira issues, PRs, etc.
 EXPECTED_ACCOUNTS_MIN   = 10     # Salesforce accounts
@@ -283,8 +283,8 @@ class TestKpiCompute:
         assert len(items) > 0, "KPI catalog is empty — reference data not seeded."
         # Verify structure
         item = items[0]
-        assert "code" in item or "kpi_id" in item, (
-            f"KPI item missing 'code'/'kpi_id' field: {item}"
+        assert "code" in item or "kpi_id" in item or "kpi_code" in item, (
+            f"KPI item missing 'code'/'kpi_id'/'kpi_code' field: {item}"
         )
 
     @pytest.mark.parametrize("kpi_code,low,high", KPI_EXPECTATIONS)

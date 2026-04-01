@@ -58,28 +58,41 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "shadow_coo_dev")
 DB_URL         = os.getenv("DB_URL",         "postgresql+psycopg://shadow_coo:shadow_coo_dev@localhost:5432/shadow_coo")
 API_KEY        = os.getenv("API_KEY",        "dev-key-change-in-production")
 
+# Deterministic UUID for the e2e test user (required by kpi-registry)
+E2E_USER_ID = str(uuid.uuid5(uuid.NAMESPACE_DNS, "e2e-test-user.shadow-coo"))
+
 # Default headers for all service calls
 DEFAULT_HEADERS = {
     "X-API-Key":    API_KEY,
     "X-Company-Id": STARTUP_ID,
-    "X-User-Id":    "e2e-test-user",
+    "X-User-Id":    E2E_USER_ID,
 }
 
+
+# Services that use /healthz instead of /health
+HEALTHZ_SERVICES = {"kpi_engine"}
 
 # =============================================================================
 # Helpers
 # =============================================================================
 
 def wait_for_service(url: str, timeout: int = 30, interval: float = 2.0) -> bool:
-    """Poll a /health endpoint until it returns 200 or timeout expires."""
+    """
+    Poll /health (or /healthz) until 200 or timeout expires.
+    Sends the API key header so services that require auth don't 401.
+    """
+    # Try /health first, then /healthz — handle both conventions
+    paths = ["/health", "/healthz"]
+    headers = {"X-API-Key": API_KEY}
     deadline = time.time() + timeout
     while time.time() < deadline:
-        try:
-            r = httpx.get(f"{url}/health", timeout=5)
-            if r.status_code == 200:
-                return True
-        except Exception:
-            pass
+        for path in paths:
+            try:
+                r = httpx.get(f"{url}{path}", timeout=5, headers=headers)
+                if r.status_code == 200:
+                    return True
+            except Exception:
+                pass
         time.sleep(interval)
     return False
 
