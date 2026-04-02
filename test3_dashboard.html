@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>COO Agent — Test 3 Explorer</title>
+<style>
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+  --pass:#3fb950;--fail:#f85149;--skip:#d29922;--warn:#e3b341;
+  --accent:#58a6ff;--accent2:#bc8cff;--text:#e6edf3;--muted:#8b949e;
+  --eng:#38bdf8;--fin:#4ade80;--exec:#fb923c;--neo:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+
+/* ── header ── */
+header{background:linear-gradient(135deg,#161b22,#0d1117);border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;gap:16px}
+header h1{font-size:1.1rem;font-weight:700}header h1 span{color:var(--accent)}
+.hbadge{background:#1f2937;border:1px solid #374151;border-radius:999px;font-size:.72rem;padding:3px 10px;color:var(--muted)}
+
+/* ── layout ── */
+.layout{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 57px)}
+
+/* ── sidebar ── */
+.sidebar{border-right:1px solid var(--border);overflow-y:auto;padding:16px 0}
+.sidebar-title{font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:0 16px 10px}
+.test-card{margin:0 10px 6px;border-radius:8px;border:1px solid var(--border);overflow:hidden;cursor:pointer;transition:border-color .15s}
+.test-card:hover{border-color:#58a6ff55}
+.test-card.active{border-color:var(--accent);background:#161b22}
+.tc-header{padding:10px 12px;display:flex;align-items:center;gap:8px;background:var(--surface2)}
+.tc-num{width:20px;height:20px;border-radius:50%;font-size:.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tc-name{font-size:.78rem;font-weight:600;flex:1;line-height:1.3}
+.tc-status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.status-idle{background:var(--border)}
+.status-running{background:var(--warn);animation:pulse 1s infinite}
+.status-pass{background:var(--pass);box-shadow:0 0 6px var(--pass)}
+.status-fail{background:var(--fail);box-shadow:0 0 6px var(--fail)}
+.status-skip{background:var(--skip)}
+.tc-q{padding:8px 12px;font-size:.71rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── main panel ── */
+.main{overflow-y:auto;padding:24px}
+.empty-state{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted)}
+.empty-state .icon{font-size:3rem}
+.empty-state p{font-size:.85rem}
+
+/* ── detail card ── */
+.detail-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.detail-title{font-size:1rem;font-weight:700;margin-bottom:6px}
+.detail-meta{font-size:.72rem;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
+.tag{padding:2px 8px;border-radius:999px;font-size:.68rem;font-weight:600}
+.tag-eng{background:#0c2a3a;color:var(--eng)}
+.tag-fin{background:#0a2318;color:var(--fin)}
+.tag-exec{background:#2a1a0a;color:var(--exec)}
+.tag-cross{background:#1a0a2a;color:var(--accent2)}
+
+/* ── run button ── */
+.run-btn{
+  background:linear-gradient(135deg,#1d4ed8,#4f46e5);
+  color:white;border:none;border-radius:8px;
+  padding:10px 20px;font-size:.82rem;font-weight:600;
+  cursor:pointer;white-space:nowrap;transition:opacity .15s;display:flex;align-items:center;gap:8px
+}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.run-btn .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.run-btn.loading .spinner{display:block}
+.run-btn.loading .btn-text{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── sections ── */
+.section{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.section-hdr{padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600}
+.section-hdr .icon{font-size:.9rem}
+.section-body{padding:16px}
+
+/* ── question box ── */
+.question-box{background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:12px 14px;font-size:.85rem;font-style:italic;color:var(--text);line-height:1.5}
+
+/* ── assertions ── */
+.assertions{display:flex;flex-direction:column;gap:6px}
+.assertion{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;padding:6px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--border)}
+.assertion .a-icon{flex-shrink:0;font-size:.9rem}
+.assertion .a-text{flex:1;line-height:1.4}
+.assertion .a-result{font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:999px;flex-shrink:0}
+.a-result-pass{background:#0a3d1a;color:var(--pass)}
+.a-result-fail{background:#3d0a0a;color:var(--fail)}
+.a-result-skip{background:#3d2a00;color:var(--skip)}
+.a-result-idle{background:var(--surface2);color:var(--muted)}
+
+/* ── answer box ── */
+.answer-box{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px;font-size:.8rem;line-height:1.7;white-space:pre-wrap;font-family:'Fira Code',monospace;color:var(--text);min-height:60px}
+.answer-box.empty{color:var(--muted);font-style:italic;font-family:inherit}
+
+/* ── call chain ── */
+.chain{display:flex;flex-direction:column;gap:0;position:relative}
+.chain-node{display:flex;gap:0;position:relative}
+
+/* vertical connector */
+.chain-spine{display:flex;flex-direction:column;align-items:center;width:36px;flex-shrink:0}
+.chain-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;margin-top:10px;border:2px solid}
+.chain-icon.layer-orchestration{background:#0f172a;border-color:#4f46e5;color:#818cf8}
+.chain-icon.layer-kpi{background:#0a2318;border-color:#16a34a;color:#4ade80}
+.chain-icon.layer-graph{background:#1a1030;border-color:#7c3aed;color:#a78bfa}
+.chain-icon.layer-error{background:#2a0a0a;border-color:#dc2626;color:#f87171}
+.chain-connector{width:2px;flex:1;min-height:8px;margin:0 auto}
+.chain-connector.layer-orchestration{background:linear-gradient(#4f46e5,#4f46e566)}
+.chain-connector.layer-kpi{background:linear-gradient(#16a34a,#16a34a66)}
+.chain-connector.layer-graph{background:linear-gradient(#7c3aed,#7c3aed66)}
+.chain-connector.layer-mixed{background:var(--border)}
+.chain-node:last-child .chain-connector{display:none}
+
+/* node card */
+.chain-card{flex:1;margin:10px 0 4px 10px;border-radius:8px;border:1px solid var(--border);overflow:hidden}
+.chain-card-hdr{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:.74rem;font-weight:700;cursor:pointer;user-select:none}
+.chain-card-hdr.layer-orchestration{background:#1e1b4b;border-bottom:1px solid #4f46e544}
+.chain-card-hdr.layer-kpi{background:#052e16;border-bottom:1px solid #16a34a44}
+.chain-card-hdr.layer-graph{background:#2e1065;border-bottom:1px solid #7c3aed44}
+.chain-card-hdr.layer-error{background:#2a0a0a;border-bottom:1px solid #dc262644}
+.chain-card-body{padding:8px 0 10px;background:var(--bg)}
+.chain-endpoint-row{padding:4px 12px 6px;font-size:.68rem;display:flex;gap:6px;align-items:baseline;border-bottom:1px solid var(--border)}
+.chain-label{color:var(--muted);flex-shrink:0;min-width:52px;font-weight:600;font-size:.65rem;text-transform:uppercase;letter-spacing:.04em}
+.chain-val{font-family:'Fira Code',monospace;word-break:break-all;line-height:1.4;color:#94a3b8;font-size:.68rem}
+
+/* request / response blocks */
+.chain-io-block{padding:6px 12px}
+.chain-io-hdr{display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer;user-select:none}
+.chain-io-tag{font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.06em}
+.chain-io-tag.req{background:#1e3a5f;color:#60a5fa}
+.chain-io-tag.res{background:#0a2318;color:#4ade80}
+.chain-io-tag.res-err{background:#2a0a0a;color:#f87171}
+.chain-io-toggle{font-size:.6rem;color:var(--muted);margin-left:auto}
+.chain-json{background:#0a0d11;border:1px solid #21262d;border-radius:4px;padding:8px 10px;font-family:'JetBrains Mono','Fira Code',ui-monospace,monospace;font-size:.67rem;line-height:1.65;white-space:pre;overflow-x:auto;overflow-y:auto;max-height:280px;color:#c9d1d9;display:block}
+.chain-json .jk{color:#79c0ff}
+.chain-json .js{color:#a5d6ff}
+.chain-json .jn{color:#f2cc60}
+.chain-json .jb{color:#ff7b72}
+.chain-json .jnull{color:#ff7b72;font-style:italic}
+
+.method-badge{font-size:.6rem;font-weight:700;padding:1px 5px;border-radius:3px}
+.m-get{background:#1e3a5f;color:#60a5fa}
+.m-cypher{background:#2d1a4e;color:var(--neo)}
+.m-route{background:#1e1b4b;color:#818cf8}
+.m-dispatch{background:#1e1b4b;color:#c4b5fd}
+.m-synth{background:#1e1b4b;color:#6ee7b7}
+.m-llm{background:#1e1b4b;color:#f0abfc}
+.m-fallback{background:#2a1e00;color:#fbbf24}
+.duration-badge{font-size:.62rem;background:var(--surface2);color:var(--muted);padding:1px 6px;border-radius:999px;margin-left:auto}
+
+/* ── result summary ── */
+.result-summary{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;font-size:.8rem;font-weight:600;margin-bottom:12px}
+.result-summary.pass{background:#0a2318;border:1px solid #1a4d2e;color:var(--pass)}
+.result-summary.fail{background:#2a0a0a;border:1px solid #4d1a1a;color:var(--fail)}
+.result-summary.skip{background:#2a1e00;border:1px solid #4d3800;color:var(--skip)}
+.result-summary.idle{background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
+
+/* ── skip note ── */
+.skip-note{background:#2a1e00;border:1px solid #4d3800;border-radius:8px;padding:12px 14px;font-size:.78rem;color:var(--warn);line-height:1.5}
+
+/* ── run all bar ── */
+.run-all-bar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px}
+.run-all-btn{background:linear-gradient(135deg,#166534,#15803d);color:white;border:none;border-radius:8px;padding:10px 20px;font-size:.82rem;font-weight:600;cursor:pointer;transition:opacity .15s}
+.run-all-btn:hover{opacity:.85}
+.run-all-btn:disabled{opacity:.4;cursor:not-allowed}
+.run-progress{flex:1;font-size:.75rem;color:var(--muted)}
+
+/* ── agents row ── */
+.agents-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.agent-chip{padding:3px 10px;border-radius:999px;font-size:.68rem;font-weight:600;display:flex;align-items:center;gap:4px}
+.agent-engineering{background:#0c2a3a;color:var(--eng);border:1px solid #1a4a6a}
+.agent-finance{background:#0a2318;color:var(--fin);border:1px solid #1a4d2e}
+.agent-executive{background:#2a1a0a;color:var(--exec);border:1px solid #4d3010}
+
+/* ── expected calls ── */
+.exp-chain{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.exp-step{display:flex;gap:10px;align-items:flex-start;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px}
+.exp-step-left{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding-top:2px}
+.exp-dot{width:8px;height:8px;border-radius:50%;border:2px solid}
+.exp-dot.kpi{border-color:var(--fin);background:#0a2318}
+.exp-dot.neo4j{border-color:var(--neo);background:#1a1030}
+.exp-step-body{flex:1;font-size:.72rem;line-height:1.5}
+.exp-svc-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.exp-params{color:var(--muted);font-family:'Fira Code',monospace;font-size:.67rem;word-break:break-all;margin-bottom:2px}
+.exp-result{color:#6ee7b7;font-family:'Fira Code',monospace;font-size:.67rem;word-break:break-all}
+.exp-answer-box{background:var(--bg);border:1px solid #1a3a2a;border-left:3px solid var(--pass);border-radius:6px;padding:10px 14px;font-size:.75rem;font-family:'Fira Code',monospace;white-space:pre-wrap;color:#6ee7b7;line-height:1.6}
+.exp-answer-box.restricted{border-left-color:var(--fail);color:var(--fail)}
+
+/* ── role switcher ── */
+.role-switcher{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px}
+.role-btn{padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-size:.72rem;font-weight:600;transition:all .15s;background:transparent;color:var(--muted)}
+.role-btn.active{color:white}
+.role-coo.active{background:#1d4ed8}
+.role-cto.active{background:#0e7490}
+.role-cfo.active{background:#166534}
+.role-eng_lead.active{background:#6d28d9}
+.role-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:.68rem;font-weight:700}
+.rb-coo{background:#1e3a8a22;color:#60a5fa;border:1px solid #1d4ed855}
+.rb-cto{background:#0e749022;color:#22d3ee;border:1px solid #0e749055}
+.rb-cfo{background:#16653422;color:#4ade80;border:1px solid #16653455}
+.rb-eng_lead{background:#6d28d922;color:#a78bfa;border:1px solid #6d28d955}
+.denied-badge{background:#3d0a0a;color:var(--fail);border:1px solid #7f1d1d;padding:2px 8px;border-radius:4px;font-size:.67rem;font-weight:700}
+.allowed-badge{background:#0a3d1a;color:var(--pass);border:1px solid #14532d;padding:2px 8px;border-radius:4px;font-size:.67rem;font-weight:700}
+.kpi-pill{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:.65rem;font-family:'Fira Code',monospace;margin:1px}
+.kpi-pill.blocked{background:#2a0a0a;border-color:#7f1d1d;color:#f87171;text-decoration:line-through}
+.kpi-pill.allowed{background:#0a2318;border-color:#14532d;color:#86efac}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="flex:1">
+    <h1>Shadow <span>COO</span> — Test 3: Agent Explorer</h1>
+  </div>
+  <div class="role-switcher" id="role-switcher">
+    <button class="role-btn role-coo active"      onclick="setRole('coo')">COO</button>
+    <button class="role-btn role-cto"             onclick="setRole('cto')">CTO</button>
+    <button class="role-btn role-cfo"             onclick="setRole('cfo')">CFO</button>
+    <button class="role-btn role-eng_lead"        onclick="setRole('eng_lead')">Eng Lead</button>
+  </div>
+  <span class="hbadge">NovaSpark Technologies</span>
+  <span class="hbadge" id="overall-badge">9 tests</span>
+  <button class="run-all-btn" id="run-all-btn" onclick="runAll()">▶ Run All Tests</button>
+</header>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <div class="sidebar">
+    <div class="sidebar-title">Test Cases</div>
+    <div id="sidebar-list"></div>
+  </div>
+
+  <!-- ── Main Panel ── -->
+  <div class="main" id="main-panel">
+    <div class="empty-state">
+      <div class="icon">🤖</div>
+      <p>Select a test from the left to see its detail and run it.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const COMPANY_ID = '8a6f16b1-b2de-58f0-9257-454c8de4fb6f';
+const COO_AGENT = 'http://localhost:8080';
+
+// ---------------------------------------------------------------------------
+// Role definitions (mirrors http_wrapper.py ROLE_KPI_BUCKETS)
+// ---------------------------------------------------------------------------
+const ROLES = {
+  coo:      { label: 'COO',             eng: ['KPI-037','KPI-038','KPI-039','KPI-040','KPI-041'], fin: ['KPI-001','KPI-002','KPI-005','KPI-021','KPI-003'], graphEng: true,  graphFin: true,  color: '#60a5fa', cls: 'rb-coo' },
+  cto:      { label: 'CTO',             eng: ['KPI-037','KPI-038','KPI-039','KPI-040','KPI-041'], fin: [],                                                   graphEng: true,  graphFin: false, color: '#22d3ee', cls: 'rb-cto' },
+  cfo:      { label: 'CFO',             eng: [],                                                   fin: ['KPI-001','KPI-002','KPI-005','KPI-021','KPI-003'], graphEng: false, graphFin: true,  color: '#4ade80', cls: 'rb-cfo' },
+  eng_lead: { label: 'Engineering Lead',eng: ['KPI-037','KPI-039'],                               fin: [],                                                   graphEng: true,  graphFin: false, color: '#a78bfa', cls: 'rb-eng_lead' },
+};
+
+const ALL_ENG_KPIS = ['KPI-037','KPI-038','KPI-039','KPI-040','KPI-041'];
+const ALL_FIN_KPIS = ['KPI-001','KPI-002','KPI-005','KPI-021','KPI-003'];
+const KPI_LABELS = {
+  'KPI-037': 'deploy freq', 'KPI-038': 'MTTR', 'KPI-039': 'sprint velocity',
+  'KPI-040': 'lead time', 'KPI-041': 'build fail rate',
+  'KPI-001': 'ARR', 'KPI-002': 'MRR', 'KPI-005': 'burn rate',
+  'KPI-021': 'churn rate', 'KPI-003': 'NRR',
+};
+
+let ACTIVE_ROLE = 'coo';
+
+// ---------------------------------------------------------------------------
+// Role-aware TESTS
+// roleData[role].expectedCalls  — which tools the agent should call
+// roleData[role].expectedAnswer — what a good answer looks like
+// roleData[role].accessNote     — brief note on scope for this role
+// roleData[role].assertions     — role-specific pass/fail checks
+// ---------------------------------------------------------------------------
+
+const TESTS = [
+  {
+    id: 1,
+    name: 'Engineering health',
+    file: 'test_engineering_health_question_returns_answer',
+    question: 'How is Engineering performing this quarter?',
+    description: 'Smoke test: agent must return a non-trivial, data-backed answer about engineering health.',
+    skipped: false, skipReason: null,
+    roleData: {
+      coo: {
+        agents: ['engineering','finance'],
+        accessNote: 'Full cross-functional view — engineering + finance + org graph',
+        assertions: [
+          { icon: '📦', text: 'Response contains an "answer" field' },
+          { icon: '📏', text: 'Answer is at least 50 characters long' },
+          { icon: '🔢', text: 'Answer contains numbers (KPIs fetched)' },
+        ],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,038,039,040,041 + finance KPIs', result: 'deploy_freq | MTTR | velocity | lead_time | ARR | MRR' },
+          { svc: 'neo4j', label: 'query_org_graph', endpoint: 'task owners / headcount', params: 'LLM-generated Cypher for team load', result: '[{name, open_tasks}, …]' },
+        ],
+        expectedAnswer: `**Engineering Performance Summary** (COO view)\n\n- Deploy frequency: X.X deploys/week\n- MTTR: X.X hours\n- Sprint velocity: XX story points/sprint\n- Lead time: X.X hours  |  Build failure rate: X.X%\n- ARR context: $X,XXX,XXX  |  Burn: $X,XXX,XXX/mo\n- Top task load: [Name] — N open tasks`,
+      },
+      cto: {
+        agents: ['engineering'],
+        accessNote: 'Engineering delivery only — KPI-037/038/039/040/041 + task graph',
+        assertions: [
+          { icon: '📦', text: 'Response contains an "answer" field' },
+          { icon: '📏', text: 'Answer is at least 50 characters long' },
+          { icon: '🔢', text: 'Answer contains numbers' },
+          { icon: '🚫', text: 'Answer does NOT fetch financial KPIs (ARR/MRR/burn)' },
+        ],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,KPI-038,KPI-039,KPI-040,KPI-041', result: 'deploy_freq | MTTR | sprint_velocity | lead_time | build_fail' },
+          { svc: 'neo4j', label: 'query_org_graph', endpoint: 'task ownership / sprint load', params: 'LLM-generated Cypher', result: 'top engineers by open tasks' },
+        ],
+        expectedAnswer: `**Engineering Performance Summary** (CTO view)\n\n- Deploy frequency: X.X deploys/week\n- MTTR: X.X hours\n- Sprint velocity: XX story points/sprint\n- Lead time for changes: X.X hours\n- Build failure rate: X.X%\n- Top task load: [Name] — N open tasks`,
+      },
+      cfo: {
+        agents: ['finance'],
+        accessNote: 'Finance scope only — engineering KPIs not in CFO brief',
+        assertions: [
+          { icon: '📦', text: 'Response contains an "answer" field' },
+          { icon: '💰', text: 'Answer focuses on financial context or notes eng is out of scope' },
+          { icon: '🚫', text: 'Answer does NOT contain engineering KPIs (KPI-037-041)' },
+        ],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001,KPI-002,KPI-005,KPI-021', result: 'ARR | MRR | burn_rate | churn — finance lens on company health' },
+        ],
+        expectedAnswer: `**Company Health** (CFO view)\n\n- ARR: $X,XXX,XXX  |  MRR: $XXX,XXX\n- Monthly burn: $X,XXX,XXX\n- Churn rate: X.X%\n\nNote: Engineering delivery metrics (deploy freq, MTTR) are\noutside CFO scope — consult CTO for those.`,
+      },
+      eng_lead: {
+        agents: ['engineering'],
+        accessNote: 'Team delivery only — KPI-037 (deploy) + KPI-039 (velocity) + task graph',
+        assertions: [
+          { icon: '📦', text: 'Response contains an "answer" field' },
+          { icon: '🔢', text: 'Answer contains numbers' },
+          { icon: '🚫', text: 'Answer does NOT contain company-wide financials' },
+        ],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,KPI-039', result: 'deploy_freq | sprint_velocity (team-scoped metrics only)' },
+          { svc: 'neo4j', label: 'query_org_graph', endpoint: 'team task assignments', params: 'LLM-generated Cypher for open tasks per person', result: '[{name, open_tasks}, …]' },
+        ],
+        expectedAnswer: `**Engineering Team Summary** (Eng Lead view)\n\n- Deploy frequency: X.X deploys/week\n- Sprint velocity: XX story points/sprint\n- Top task load: [Name] — N open tasks`,
+      },
+    },
+    expectedCalls: [
+      { svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,KPI-038,KPI-039,KPI-040,KPI-041 | company_id | start_date=2026-01-01 | end_date=2026-04-01', result: 'KPI-037=deploy_freq | KPI-038=MTTR_hours | KPI-039=sprint_velocity | KPI-040=lead_time | KPI-041=build_fail_rate' },
+      { svc: 'neo4j', label: 'neo4j', endpoint: 'Top task owners', params: 'MATCH (p:Person)<-[:OWNS]-(t:Task) RETURN p.name, count(t) ORDER BY open_tasks DESC LIMIT 3', result: '[{name: "Alice Chen", open_tasks: 12}, …]' },
+    ],
+    expectedAnswer: `**Engineering Performance Summary**\n\n- Deploy frequency: X.X deploys/week\n- MTTR: X.X hours\n- Sprint velocity: XX story points/sprint\n- Lead time for changes: X.X hours\n- Build failure rate: X.X%\n- Top task load: [Name] has N open tasks`,
+  },
+  {
+    id: 2,
+    name: 'Engineering contains numbers',
+    file: 'test_engineering_answer_contains_numbers',
+    question: 'What is the current engineering velocity and cycle time?',
+    description: 'The agent must fetch real KPIs from kpi-engine — the answer must contain quantitative values.',
+    skipped: false, skipReason: null,
+    roleData: {
+      coo:      { agents: ['engineering'], accessNote: 'All engineering KPIs available',
+        assertions: [{ icon: '🔢', text: 'Answer contains at least one number' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,038,039,040,041', result: 'velocity | deploy_freq | MTTR | lead_time | build_fail_rate' }],
+        expectedAnswer: `Deploy frequency: X.X/week | MTTR: X.X hours | Sprint velocity: XX pts/sprint | Lead time: X.X hours` },
+      cto:      { agents: ['engineering'], accessNote: 'All 5 engineering KPIs',
+        assertions: [{ icon: '🔢', text: 'Answer contains numbers (KPI-037–041)' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,038,039,040,041', result: 'same as COO — full eng suite' }],
+        expectedAnswer: `Identical to COO view for this question — CTO has full engineering visibility.` },
+      cfo:      { agents: ['finance'], accessNote: 'Finance scope — redirects to financial velocity metrics',
+        assertions: [{ icon: '💬', text: 'Answer notes engineering metrics are outside CFO scope OR redirects to financial metrics' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001,002,005 (financial velocity)', result: 'ARR growth rate | MRR | burn — CFO\'s view of "velocity"' }],
+        expectedAnswer: `CFO scope: engineering velocity metrics (KPI-037-041) not available.\nFinancial velocity instead:\n- ARR: $X,XXX,XXX\n- MRR growth: X.X%\n- Burn rate: $X,XXX,XXX/mo` },
+      eng_lead: { agents: ['engineering'], accessNote: 'Deploy freq + sprint velocity only',
+        assertions: [{ icon: '🔢', text: 'Answer contains numbers (KPI-037, KPI-039 only)' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,KPI-039', result: 'deploy_freq | sprint_velocity (no MTTR/lead_time/build_fail)' }],
+        expectedAnswer: `Team delivery:\n- Deploy frequency: X.X/week\n- Sprint velocity: XX pts/sprint` },
+    },
+  },
+  {
+    id: 3,
+    name: 'Engineering — KPI tool used',
+    file: 'test_engineering_answer_used_kpi_tool',
+    question: 'What is our deploy frequency and MTTR?',
+    description: 'Verifies call_trace contains a kpi-engine call for engineering KPIs.',
+    skipped: false, skipReason: null,
+    roleData: {
+      coo:      { agents: ['engineering'], accessNote: 'Full engineering access',
+        assertions: [{ icon: '📊', text: 'call_trace contains a kpi-engine step with KPI-037 or KPI-038' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,KPI-038', result: 'deploy_freq | MTTR' }],
+        expectedAnswer: `- Deploy frequency: X.X deploys/week\n- MTTR: X.X hours` },
+      cto:      { agents: ['engineering'], accessNote: 'Primary owner of these KPIs',
+        assertions: [{ icon: '📊', text: 'call_trace contains kpi-engine with KPI-037,KPI-038' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,KPI-038', result: 'deploy_freq | MTTR — core CTO metrics' }],
+        expectedAnswer: `**Engineering Delivery** (CTO)\n- Deploy frequency: X.X/week\n- MTTR: X.X hours` },
+      cfo:      { agents: ['finance'], accessNote: 'No engineering KPIs — CFO scope',
+        assertions: [{ icon: '🚫', text: 'call_trace does NOT contain KPI-037 or KPI-038' }],
+        expectedCalls: [],
+        expectedAnswer: `Deploy frequency and MTTR are engineering metrics outside CFO scope.\nFor financial health metrics, see ARR/MRR/burn (KPI-001, 002, 005).` },
+      eng_lead: { agents: ['engineering'], accessNote: 'Deploy freq in scope; MTTR is aggregate/excluded',
+        assertions: [{ icon: '📊', text: 'call_trace contains kpi-engine with KPI-037; KPI-038 may be absent' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037 (deploy only — MTTR is org-wide)', result: 'deploy_freq' }],
+        expectedAnswer: `**Team Delivery** (Eng Lead)\n- Deploy frequency: X.X/week\n- MTTR: not available at team-lead scope` },
+    },
+  },
+  {
+    id: 4,
+    name: 'Engineering — Graph tool used',
+    file: 'test_engineering_answer_used_graph_tool',
+    question: 'Which engineers have the most open tasks assigned to them right now?',
+    description: 'Org structure question — must trigger a Neo4j graph query (query_org_graph tool call).',
+    skipped: false, skipReason: null,
+    roleData: {
+      coo:      { agents: ['engineering'], accessNote: 'Full org graph access',
+        assertions: [{ icon: '🕸️', text: 'call_trace contains a neo4j CYPHER step' }, { icon: '👤', text: 'Answer lists people with task counts' }],
+        expectedCalls: [{ svc: 'neo4j', label: 'query_org_graph', endpoint: 'task ownership', params: 'NL→Cypher: who has most open tasks?', result: '[{name, open_tasks}, …] top 5 engineers' }],
+        expectedAnswer: `**Top Task Owners** (COO view)\n1. [Name] — N open tasks\n2. [Name] — N open tasks\n3. [Name] — N open tasks` },
+      cto:      { agents: ['engineering'], accessNote: 'Full org graph — this is core CTO data',
+        assertions: [{ icon: '🕸️', text: 'call_trace contains neo4j CYPHER step' }, { icon: '👤', text: 'Answer lists engineers with task counts' }],
+        expectedCalls: [{ svc: 'neo4j', label: 'query_org_graph', endpoint: 'task ownership by engineer', params: 'NL→Cypher: open tasks per engineer', result: 'top engineers by task load' }],
+        expectedAnswer: `**Engineering Task Load** (CTO)\n1. [Name] — N open tasks\n2. [Name] — N open tasks` },
+      cfo:      { agents: ['finance'], accessNote: 'Org graph not in CFO scope',
+        assertions: [{ icon: '🚫', text: 'call_trace does NOT contain a neo4j step' }],
+        expectedCalls: [],
+        expectedAnswer: `Task assignments are an engineering/people-ops concern outside CFO scope.\nFor headcount cost analysis, consult HR or COO.` },
+      eng_lead: { agents: ['engineering'], accessNote: 'Team task graph — limited to own team',
+        assertions: [{ icon: '🕸️', text: 'call_trace contains neo4j CYPHER step' }],
+        expectedCalls: [{ svc: 'neo4j', label: 'query_org_graph', endpoint: 'team task load', params: 'NL→Cypher: open tasks for team members', result: 'team members ranked by open tasks' }],
+        expectedAnswer: `**Your Team's Task Load** (Eng Lead)\n1. [Name] — N open tasks\n2. [Name] — N open tasks` },
+    },
+  },
+  {
+    id: 5,
+    name: 'Finance — Revenue figures',
+    file: 'test_financial_summary_contains_revenue_figures',
+    question: 'What is our current ARR and monthly burn rate?',
+    description: 'Finance answer must include currency values or ARR/MRR references backed by real kpi-engine data.',
+    skipped: false, skipReason: null,
+    roleData: {
+      coo:      { agents: ['finance'], accessNote: 'Full financial access',
+        assertions: [{ icon: '🔢', text: 'Answer contains numbers' }, { icon: '💰', text: 'Answer references ARR or $ value' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001,KPI-002,KPI-005,KPI-021', result: 'ARR | MRR | burn_rate | churn' }],
+        expectedAnswer: `**Financial Summary** (COO)\n- ARR: $2,523,752\n- MRR: $210,312\n- Monthly burn: $5,641,432\n- Churn: 0.0%` },
+      cto:      { agents: ['engineering'], accessNote: 'No financial KPIs — CTO redirects to eng context',
+        assertions: [{ icon: '💬', text: 'Answer notes financial data outside CTO scope OR relates burn to engineering investment' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,039 (engineering investment proxies)', result: 'deploy_freq | velocity — what CTO can speak to' }],
+        expectedAnswer: `ARR and burn rate are CFO/COO metrics. As CTO, I can speak to engineering investment:\n- Deploy frequency: X.X/week\n- Sprint velocity: XX pts/sprint\nFor financial figures, consult the CFO.` },
+      cfo:      { agents: ['finance'], accessNote: 'Full financial access — primary owner',
+        assertions: [{ icon: '🔢', text: 'Answer contains numbers' }, { icon: '💰', text: 'Answer references ARR, MRR, or $ currency' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001,KPI-002,KPI-005,KPI-021,KPI-003', result: 'ARR | MRR | burn | churn | NRR' }],
+        expectedAnswer: `**Financial Summary** (CFO — full view)\n- ARR: $2,523,752  |  MRR: $210,312\n- Monthly burn: $5,641,432\n- Customer churn: 0.0%\n- NRR: XXX%` },
+      eng_lead: { agents: ['engineering'], accessNote: 'No financial KPIs at Eng Lead scope',
+        assertions: [{ icon: '🚫', text: 'Answer does not contain ARR/MRR/burn figures' }],
+        expectedCalls: [],
+        expectedAnswer: `ARR and burn rate are not available at Engineering Lead scope.\nFor financial data, consult your CFO or COO.` },
+    },
+  },
+  {
+    id: 6,
+    name: 'Churn — Percentage',
+    file: 'test_churn_question_returns_percentage',
+    question: 'What is our customer churn rate this year?',
+    description: 'Answer must contain a percentage value. Uses KPI-021 (churn) from kpi-engine.',
+    skipped: false, skipReason: null,
+    roleData: {
+      coo:      { agents: ['finance'], accessNote: 'Full access to churn + NRR',
+        assertions: [{ icon: '📉', text: 'Answer contains a % value' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-021,KPI-003', result: 'churn_pct | NRR_pct' }],
+        expectedAnswer: `**Churn Analysis** (COO)\n- Customer churn: X.X% YTD\n- NRR: XXX%` },
+      cto:      { agents: ['engineering'], accessNote: 'Churn outside CTO scope — relates to incident rate instead',
+        assertions: [{ icon: '💬', text: 'Answer relates churn to engineering reliability OR notes it is outside CTO scope' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-038 (MTTR — reliability proxy)', result: 'MTTR — engineering view of customer impact' }],
+        expectedAnswer: `Customer churn (KPI-021) is a finance/CS metric. From an engineering angle:\n- MTTR: X.X hours — lower MTTR reduces churn risk\nFor the churn rate, consult CFO or COO.` },
+      cfo:      { agents: ['finance'], accessNote: 'Full access — owns this metric',
+        assertions: [{ icon: '📉', text: 'Answer contains a % value' }, { icon: '💰', text: 'Mentions NRR context' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-021,KPI-003,KPI-001', result: 'churn | NRR | ARR (for context)' }],
+        expectedAnswer: `**Churn Analysis** (CFO)\n- Customer churn rate: X.X% YTD\n- NRR: XXX%  |  ARR impact: $X,XXX` },
+      eng_lead: { agents: ['engineering'], accessNote: 'Not in Eng Lead scope',
+        assertions: [{ icon: '🚫', text: 'Answer notes churn is outside Eng Lead scope' }],
+        expectedCalls: [],
+        expectedAnswer: `Customer churn is a business/finance metric, not available at Engineering Lead scope.` },
+    },
+  },
+  {
+    id: 7,
+    name: 'Cross-domain routing',
+    file: 'test_broad_question_routes_to_multiple_agents',
+    question: 'Give me a quick health check on Engineering delivery and our financial runway.',
+    description: 'Spans Engineering + Finance. COO/CTO/CFO each get a different slice; Eng Lead gets engineering only.',
+    skipped: false, skipReason: null,
+    roleData: {
+      coo:      { agents: ['engineering','finance'], accessNote: 'Both domains — full cross-functional view',
+        assertions: [{ icon: '🔢', text: 'Answer contains numbers' }, { icon: '⚙️', text: 'Mentions engineering terms' }, { icon: '💵', text: 'Mentions finance terms' }],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,038,039,001,002,005', result: 'eng KPIs + finance KPIs in one call' },
+          { svc: 'neo4j', label: 'query_org_graph', endpoint: 'deals / pipeline', params: 'NL→Cypher: active deals', result: 'deal count + pipeline value' },
+        ],
+        expectedAnswer: `**Cross-Domain Health Check** (COO)\nEngineering: deploy X.X/wk | MTTR X.X hrs | velocity XX pts\nFinance: ARR $X,XXX,XXX | burn $X,XXX,XXX/mo | runway X mo` },
+      cto:      { agents: ['engineering'], accessNote: 'Engineering only — finance section shown as restricted',
+        assertions: [{ icon: '⚙️', text: 'Mentions engineering terms (deploy, velocity, MTTR)' }, { icon: '🚫', text: 'Does NOT include ARR/MRR/burn figures' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,038,039,040,041', result: 'full engineering suite' }],
+        expectedAnswer: `**Engineering Health** (CTO view)\n- Deploy: X.X/wk | MTTR: X.X hrs | Velocity: XX pts\n\nFinancial runway: outside CTO scope — consult CFO.` },
+      cfo:      { agents: ['finance'], accessNote: 'Finance only — engineering section shown as restricted',
+        assertions: [{ icon: '💵', text: 'Mentions ARR, MRR, burn, or runway' }, { icon: '🚫', text: 'Does NOT include deploy frequency or sprint velocity' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001,002,005,021', result: 'ARR | MRR | burn | churn' }],
+        expectedAnswer: `**Financial Runway** (CFO view)\n- ARR: $X,XXX,XXX | MRR: $XXX,XXX\n- Burn: $X,XXX,XXX/mo → runway ~X months\n\nEngineering delivery: outside CFO scope — consult CTO.` },
+      eng_lead: { agents: ['engineering'], accessNote: 'Team delivery only — no financial runway data',
+        assertions: [{ icon: '⚙️', text: 'Mentions engineering delivery' }, { icon: '🚫', text: 'Does NOT include ARR/runway figures' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,KPI-039', result: 'deploy_freq | velocity' }],
+        expectedAnswer: `**Team Delivery Health** (Eng Lead)\n- Deploy: X.X/wk | Velocity: XX pts/sprint\n\nFinancial runway data not available at Eng Lead scope.` },
+    },
+  },
+  {
+    id: 8,
+    name: 'No hallucination — company name',
+    file: 'test_answer_does_not_hallucinate_company_name',
+    question: "Summarise our company's overall performance for me.",
+    description: 'Answer must reference the real company name (NovaSpark) or real numeric data — not a generic placeholder.',
+    skipped: false, skipReason: null,
+    roleData: {
+      coo:      { agents: ['engineering','finance','executive'], accessNote: 'Full view — company name + all KPIs',
+        assertions: [{ icon: '🏢', text: 'Answer mentions "NovaSpark" OR contains real numeric data' }],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001,002,037,021', result: 'ARR | MRR | deploy_freq | churn' },
+          { svc: 'neo4j', label: 'query_org_graph', endpoint: 'headcount', params: 'MATCH (p:Person {company_id}) RETURN count(p)', result: 'N employees' },
+        ],
+        expectedAnswer: `**NovaSpark Technologies — Overall Performance** (COO)\n- Headcount: N | ARR: $X,XXX,XXX | Deploy: X.X/wk | Churn: X.X%` },
+      cto:      { agents: ['engineering'], accessNote: 'Engineering summary with company context',
+        assertions: [{ icon: '🏢', text: 'Answer mentions "NovaSpark" OR contains engineering numeric data' }],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,038,039,040,041', result: 'full engineering suite' },
+          { svc: 'neo4j', label: 'query_org_graph', endpoint: 'headcount + task load', params: 'org graph query', result: 'headcount + top task owners' },
+        ],
+        expectedAnswer: `**NovaSpark Technologies — Engineering Performance** (CTO)\n- Deploy: X.X/wk | MTTR: X.X hrs | Velocity: XX pts\n- Headcount: N engineers` },
+      cfo:      { agents: ['finance'], accessNote: 'Finance summary with company name',
+        assertions: [{ icon: '🏢', text: 'Answer mentions "NovaSpark" OR contains ARR/MRR/$ values' }],
+        expectedCalls: [{ svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001,002,005,021,003', result: 'ARR | MRR | burn | churn | NRR' }],
+        expectedAnswer: `**NovaSpark Technologies — Financial Performance** (CFO)\n- ARR: $X,XXX,XXX | MRR: $XXX,XXX\n- Burn: $X,XXX,XXX/mo | Churn: X.X% | NRR: XXX%` },
+      eng_lead: { agents: ['engineering'], accessNote: 'Team summary — limited to delivery + headcount',
+        assertions: [{ icon: '🏢', text: 'Answer mentions company OR contains team delivery numbers' }],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037,KPI-039', result: 'deploy_freq | velocity' },
+          { svc: 'neo4j', label: 'query_org_graph', endpoint: 'team headcount + tasks', params: 'NL→Cypher', result: 'team members + open tasks' },
+        ],
+        expectedAnswer: `**Team Performance Summary** (Eng Lead)\n- Deploy: X.X/wk | Velocity: XX pts\n- Team size: N | Top task load: [Name] — N tasks` },
+    },
+  },
+  {
+    id: 9,
+    name: 'Follow-up context',
+    file: 'test_follow_up_question_references_previous_context',
+    question: 'Q1: "What is our current ARR?" → Q2: "How does that compare to last quarter?"',
+    description: 'Multi-turn: second question must reference first answer context. Both turns use the same persona.',
+    skipped: false, skipReason: null,
+    roleData: {
+      coo:      { agents: ['finance'], accessNote: 'ARR available; multi-turn context tracked',
+        assertions: [{ icon: '🔄', text: 'Answer contains comparative language or numbers' }],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine (turn 1)', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001 (ARR)', result: 'ARR=$2,523,752' },
+          { svc: 'kpi', label: 'kpi-engine (turn 2)', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001 broader date range for QoQ', result: 'prior quarter ARR for comparison' },
+        ],
+        expectedAnswer: `Turn 1: ARR is $2,523,752\nTurn 2: ARR of $2,523,752 compares to last quarter's $X,XXX,XXX — [higher/lower/flat]` },
+      cto:      { agents: ['engineering'], accessNote: 'ARR not in CTO scope — turn 2 compares engineering metric instead',
+        assertions: [{ icon: '🔄', text: 'Answer contains comparative language or numbers' }],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine (turn 1)', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-037 (deploy freq as CTO proxy)', result: 'deploy_freq' },
+        ],
+        expectedAnswer: `ARR is outside CTO scope. For engineering: deploy frequency is X.X/wk; last quarter it was Y.Y/wk — [trend].` },
+      cfo:      { agents: ['finance'], accessNote: 'Full ARR history available for QoQ',
+        assertions: [{ icon: '🔄', text: 'Answer contains comparative language or numbers' }, { icon: '💰', text: 'Mentions ARR figure' }],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine (turn 1)', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-001,002,005', result: 'ARR | MRR | burn' },
+          { svc: 'kpi', label: 'kpi-engine (turn 2)', endpoint: '/api/v1/kpis/timeseries', params: 'wider range for QoQ comparison', result: 'prior quarter ARR' },
+        ],
+        expectedAnswer: `Current ARR: $2,523,752\nPrior quarter: $X,XXX,XXX → [growth %] QoQ` },
+      eng_lead: { agents: ['engineering'], accessNote: 'ARR not available — compares team velocity instead',
+        assertions: [{ icon: '🔄', text: 'Answer contains comparative language or numbers' }],
+        expectedCalls: [
+          { svc: 'kpi', label: 'kpi-engine (turn 1)', endpoint: '/api/v1/kpis/timeseries', params: 'kpi_ids=KPI-039 (velocity)', result: 'sprint_velocity' },
+        ],
+        expectedAnswer: `ARR not available at Eng Lead scope. Team velocity: XX pts this quarter vs YY pts last quarter.` },
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// State — keyed by [role][testId]
+// ---------------------------------------------------------------------------
+const state = {};
+Object.keys(ROLES).forEach(role => {
+  state[role] = {};
+  TESTS.forEach(t => { state[role][t.id] = { status: 'idle', result: null }; });
+});
+let selectedId = null;
+
+function roleState(id) { return state[ACTIVE_ROLE][id]; }
+
+// ---------------------------------------------------------------------------
+// Role switcher
+// ---------------------------------------------------------------------------
+function setRole(role) {
+  ACTIVE_ROLE = role;
+  document.querySelectorAll('.role-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.classList.contains(`role-${role}`));
+  });
+  renderSidebar();
+  if (selectedId) renderDetail(selectedId);
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar
+// ---------------------------------------------------------------------------
+function renderSidebar() {
+  const r = ROLES[ACTIVE_ROLE];
+  const el = document.getElementById('sidebar-list');
+  el.innerHTML = TESTS.map(t => {
+    const s = roleState(t.id);
+    const cls = s.status === 'idle' ? 'status-idle'
+              : s.status === 'running' ? 'status-running'
+              : s.status === 'pass' ? 'status-pass'
+              : s.status === 'fail' ? 'status-fail'
+              : 'status-skip';
+    return `
+    <div class="test-card ${selectedId === t.id ? 'active' : ''}" onclick="selectTest(${t.id})">
+      <div class="tc-header">
+        <div class="tc-num" style="background:${t.skipped?'#3d2a00':'#1e3a5f'};color:${t.skipped?'var(--skip)':'var(--accent)'}">${t.id}</div>
+        <div class="tc-name">${t.name}</div>
+        <div class="tc-status ${cls}"></div>
+      </div>
+      <div class="tc-q">${t.question.length > 70 ? t.question.slice(0,70)+'…' : t.question}</div>
+    </div>`;
+  }).join('');
+  updateOverallBadge();
+}
+
+function updateOverallBadge() {
+  const rs = state[ACTIVE_ROLE];
+  const pass = Object.values(rs).filter(s => s.status === 'pass').length;
+  const fail = Object.values(rs).filter(s => s.status === 'fail').length;
+  const skip = Object.values(rs).filter(s => s.status === 'skip').length;
+  const run  = pass + fail + skip;
+  document.getElementById('overall-badge').textContent =
+    run === 0 ? `9 tests` : `${pass}✓ ${fail ? fail+'✗ ' : ''}${skip}⊘`;
+}
+
+// ---------------------------------------------------------------------------
+// Select + render detail
+// ---------------------------------------------------------------------------
+function selectTest(id) {
+  selectedId = id;
+  renderSidebar();
+  renderDetail(id);
+}
+
+function renderDetail(id) {
+  const t  = TESTS.find(x => x.id === id);
+  const s  = roleState(id);
+  const rd = t.roleData[ACTIVE_ROLE];
+  const r  = ROLES[ACTIVE_ROLE];
+  const panel = document.getElementById('main-panel');
+
+  const agentChips = (rd.agents || []).map(a => {
+    const cls = a === 'engineering' ? 'agent-engineering' : a === 'finance' ? 'agent-finance' : 'agent-executive';
+    const icon = a === 'engineering' ? '⚙️' : a === 'finance' ? '💰' : '📊';
+    return `<span class="agent-chip ${cls}">${icon} ${a}</span>`;
+  }).join('');
+
+  const roleBadge = `<span class="role-badge ${r.cls}">${r.label}</span>`;
+
+  const assertionRows = (rd.assertions || []).map(a => {
+    let resultCls = 'a-result-idle', resultTxt = 'PENDING';
+    if (s.status === 'pass') { resultCls = 'a-result-pass'; resultTxt = '✓ PASS'; }
+    if (s.status === 'fail') { resultCls = 'a-result-fail'; resultTxt = '✗ FAIL'; }
+    if (s.status === 'skip') { resultCls = 'a-result-skip'; resultTxt = '⊘ SKIP'; }
+    return `
+    <div class="assertion">
+      <span class="a-icon">${a.icon}</span>
+      <span class="a-text">${a.text}</span>
+      <span class="a-result ${resultCls}">${resultTxt}</span>
+    </div>`;
+  }).join('');
+
+  let statusSummary = '';
+  if (s.status !== 'idle') {
+    const cls = s.status === 'pass' ? 'pass' : s.status === 'fail' ? 'fail' : 'skip';
+    const icon = s.status === 'pass' ? '✅' : s.status === 'fail' ? '❌' : '⊘';
+    const msg  = s.status === 'pass' ? 'Test passed' : s.status === 'fail' ? 'Test failed' : 'Test skipped';
+    const ms   = s.result?.total_ms ? ` · ${s.result.total_ms}ms` : '';
+    const persona = s.result?.persona ? ` · persona: ${s.result.persona}` : '';
+    statusSummary = `<div class="result-summary ${cls}">${icon} ${msg}${ms}${persona}</div>`;
+  }
+
+  const answerContent = s.result?.answer
+    ? s.result.answer
+    : (s.status === 'running' ? '⏳ Waiting for response…' : '');
+
+  const agentsUsed = s.result?.agents_used;
+  const agentsRow = agentsUsed
+    ? `<div class="agents-row">${agentsUsed.map(a => {
+        const cls = a === 'engineering' ? 'agent-engineering' : a === 'finance' ? 'agent-finance' : 'agent-executive';
+        return `<span class="agent-chip ${cls}">${a}</span>`;
+      }).join('')}</div>` : '';
+
+  const callTraceHtml = renderCallTrace(s.result?.call_trace || [], s.status);
+  const skipBanner = t.skipped
+    ? `<div class="skip-note">⊘ <strong>Skipped:</strong> ${t.skipReason}</div>` : '';
+
+  panel.innerHTML = `
+    <div class="detail-header">
+      <div>
+        <div class="detail-title" style="display:flex;align-items:center;gap:10px">
+          Test ${t.id}: ${t.name} ${roleBadge}
+        </div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${t.file}</div>
+        <div class="agents-row" style="margin-top:8px">${agentChips}</div>
+      </div>
+      <button class="run-btn ${s.status === 'running' ? 'loading' : ''}" id="run-btn-${id}"
+        onclick="runTest(${id})" ${t.skipped || s.status === 'running' ? 'disabled' : ''}>
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Run as ${r.label}</span>
+      </button>
+    </div>
+
+    ${statusSummary}
+
+    <div class="section">
+      <div class="section-hdr"><span class="icon">💬</span> Question</div>
+      <div class="section-body">
+        <div class="question-box">"${t.question}"</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:8px;line-height:1.5">${t.description}</div>
+        <div style="margin-top:8px;font-size:.72rem;color:var(--muted)">
+          <strong style="color:${r.color}">Scope (${r.label}):</strong> ${rd.accessNote}
+        </div>
+      </div>
+    </div>
+
+    ${renderExpectedSection(rd)}
+
+    <div class="section">
+      <div class="section-hdr"><span class="icon">✅</span> Assertions for ${r.label}</div>
+      <div class="section-body">
+        <div class="assertions">${assertionRows}</div>
+        ${skipBanner ? '<div style="margin-top:10px">'+skipBanner+'</div>' : ''}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-hdr"><span class="icon">💡</span> Agent Answer ${agentsRow}</div>
+      <div class="section-body">
+        <div class="answer-box ${answerContent ? '' : 'empty'}">${answerContent || (t.skipped ? '(skipped)' : 'Hit "Run as '+r.label+'" to see the live response…')}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-hdr"><span class="icon">🔗</span> Live Call Chain</div>
+      <div class="section-body" style="padding:12px">${callTraceHtml}</div>
+    </div>
+  `;
+}
+
+function renderExpectedSection(rd) {
+  const calls = rd.expectedCalls || [];
+  const callsHtml = calls.length === 0
+    ? `<div style="color:var(--skip);font-size:.78rem">No service calls expected for this role — access restricted or out of scope.</div>`
+    : calls.map(c => {
+        const dotCls = c.svc === 'neo4j' ? 'neo4j' : 'kpi';
+        const badge  = c.svc === 'neo4j'
+          ? `<span class="method-badge m-cypher">CYPHER</span>`
+          : `<span class="method-badge m-get">GET</span>`;
+        const color = c.svc === 'neo4j' ? 'var(--neo)' : 'var(--fin)';
+        return `
+        <div class="exp-step">
+          <div class="exp-step-left"><div class="exp-dot ${dotCls}"></div></div>
+          <div class="exp-step-body">
+            <div class="exp-svc-row">${badge}<span style="color:${color};font-weight:700;font-size:.75rem">${c.label}</span></div>
+            <div class="exp-params">${c.endpoint}</div>
+            <div class="exp-params" style="color:#6b7280">params: ${c.params}</div>
+            <div class="exp-result">expected → ${c.result}</div>
+          </div>
+        </div>`;
+      }).join('');
+
+  const isRestricted = !rd.expectedAnswer || rd.expectedAnswer.toLowerCase().includes('not available') || rd.expectedAnswer.toLowerCase().includes('outside') || rd.expectedAnswer.toLowerCase().includes('restricted');
+  const answerHtml = rd.expectedAnswer
+    ? `<div class="exp-answer-box ${isRestricted ? 'restricted' : ''}">${rd.expectedAnswer}</div>`
+    : `<div style="color:var(--muted);font-size:.78rem">N/A</div>`;
+
+  return `
+    <div class="section">
+      <div class="section-hdr"><span class="icon">🗺️</span> Expected Internal Calls</div>
+      <div class="section-body" style="padding:12px">
+        <div class="exp-chain">${callsHtml}</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-hdr"><span class="icon">📋</span> Expected Response Format</div>
+      <div class="section-body">${answerHtml}</div>
+    </div>`;
+}
+
+// ── JSON syntax highlighter ────────────────────────────────────────────────
+function fmtJson(obj) {
+  if (obj === undefined || obj === null) return '<span class="jnull">null</span>';
+  let s;
+  try { s = JSON.stringify(obj, null, 2); } catch(e) { return String(obj); }
+  // escape HTML first
+  s = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // syntax highlight
+  return s.replace(
+    /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+    m => {
+      if (/^"/.test(m)) {
+        if (/:$/.test(m)) return `<span class="jk">${m}</span>`;
+        return `<span class="js">${m}</span>`;
+      }
+      if (m === 'true' || m === 'false') return `<span class="jb">${m}</span>`;
+      if (m === 'null') return `<span class="jnull">${m}</span>`;
+      return `<span class="jn">${m}</span>`;
+    }
+  );
+}
+
+// ── Call chain renderer ────────────────────────────────────────────────────
+function renderCallTrace(trace, status) {
+  if (status === 'idle') {
+    return `<div style="color:var(--muted);font-size:.78rem;padding:8px">Run the test to see the live call chain.</div>`;
+  }
+  if (status === 'running') {
+    return `<div style="color:var(--warn);font-size:.78rem;padding:8px">⏳ Executing…</div>`;
+  }
+  if (!trace || trace.length === 0) {
+    return `<div style="color:var(--muted);font-size:.78rem;padding:8px">No service calls recorded.</div>`;
+  }
+
+  const LAYER_ICON = { orchestration: '⚡', kpi: '📊', graph: '🕸', error: '⚠' };
+  const METHOD_CLS = {
+    GET: 'm-get', CYPHER: 'm-cypher', ROUTE: 'm-route',
+    DISPATCH: 'm-dispatch', SYNTHESIZE: 'm-synth',
+    FALLBACK: 'm-fallback', LLM: 'm-llm',
+  };
+
+  const nodes = trace.map((step, i) => {
+    const layer    = step.layer || (step.service === 'kpi-engine' ? 'kpi' : step.service === 'neo4j' ? 'graph' : 'orchestration');
+    const isErr    = step.status === 'error' || step.status === 'denied';
+    const effLayer = isErr ? 'error' : layer;
+    const icon     = LAYER_ICON[effLayer] || '●';
+    const mCls     = METHOD_CLS[step.method] || 'm-get';
+    const nextLayer  = trace[i + 1]?.layer || effLayer;
+    const connLayer  = nextLayer === effLayer ? effLayer : 'mixed';
+    const durationHtml = step.duration_ms > 0
+      ? `<span class="duration-badge">${step.duration_ms}ms</span>` : '';
+
+    const resCls   = isErr ? 'res-err' : 'res';
+    const nodeId   = `step-${i}`;
+
+    return `
+    <div class="chain-node">
+      <div class="chain-spine">
+        <div class="chain-icon layer-${effLayer}">${icon}</div>
+        <div class="chain-connector layer-${connLayer}"></div>
+      </div>
+      <div class="chain-card">
+        <div class="chain-card-hdr layer-${effLayer}" onclick="toggleStep('${nodeId}')">
+          <span class="method-badge ${mCls}">${step.method}</span>
+          <span>${step.service}</span>
+          ${durationHtml}
+          <span class="chain-io-toggle" id="${nodeId}-toggle">▼</span>
+        </div>
+        <div class="chain-card-body" id="${nodeId}-body">
+          <div class="chain-endpoint-row">
+            <span class="chain-label">endpoint</span>
+            <span class="chain-val">${step.endpoint}</span>
+          </div>
+          <div class="chain-io-block">
+            <div class="chain-io-hdr" onclick="toggleIo('${nodeId}-req')">
+              <span class="chain-io-tag req">▶ REQUEST</span>
+              <span class="chain-io-toggle" id="${nodeId}-req-toggle">▼</span>
+            </div>
+            <code class="chain-json" id="${nodeId}-req">${fmtJson(step.request)}</code>
+          </div>
+          <div class="chain-io-block" style="margin-top:4px">
+            <div class="chain-io-hdr" onclick="toggleIo('${nodeId}-res')">
+              <span class="chain-io-tag ${resCls}">◀ RESPONSE</span>
+              <span class="chain-io-toggle" id="${nodeId}-res-toggle">▼</span>
+            </div>
+            <code class="chain-json" id="${nodeId}-res">${fmtJson(step.response)}</code>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  const kpiSteps   = trace.filter(s => s.layer === 'kpi').length;
+  const graphSteps = trace.filter(s => s.layer === 'graph').length;
+  const orchSteps  = trace.filter(s => s.layer === 'orchestration').length;
+  const totalMs    = trace.reduce((a, s) => a + (s.duration_ms || 0), 0);
+  const summary = `
+  <div style="margin-top:12px;padding:8px 12px;background:var(--surface2);border-radius:6px;display:flex;gap:16px;font-size:.68rem;color:var(--muted);flex-wrap:wrap">
+    <span>⚡ ${orchSteps} orchestration</span>
+    <span>📊 ${kpiSteps} kpi-engine call${kpiSteps !== 1 ? 's' : ''}</span>
+    <span>🕸 ${graphSteps} neo4j call${graphSteps !== 1 ? 's' : ''}</span>
+    <span style="margin-left:auto;color:var(--text)">${totalMs}ms total service time</span>
+  </div>`;
+
+  return `<div class="chain">${nodes.join('')}</div>${summary}`;
+}
+
+function toggleStep(nodeId) {
+  const body    = document.getElementById(nodeId + '-body');
+  const toggle  = document.getElementById(nodeId + '-toggle');
+  if (!body) return;
+  const collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  if (toggle) toggle.textContent = collapsed ? '▼' : '▶';
+}
+
+function toggleIo(elId) {
+  const el     = document.getElementById(elId);
+  const toggle = document.getElementById(elId + '-toggle');
+  if (!el) return;
+  const collapsed = el.style.display === 'none';
+  el.style.display = collapsed ? 'block' : 'none';
+  if (toggle) toggle.textContent = collapsed ? '▼' : '▶';
+}
+
+// ---------------------------------------------------------------------------
+// Run a single test  (uses ACTIVE_ROLE as persona)
+// ---------------------------------------------------------------------------
+async function runTest(id) {
+  const t = TESTS.find(x => x.id === id);
+  if (t.skipped) return;
+
+  state[ACTIVE_ROLE][id] = { status: 'running', result: null };
+  renderSidebar();
+  if (selectedId === id) renderDetail(id);
+
+  try {
+    let result;
+
+    if (id === 9) {
+      // Multi-turn: two separate asks
+      const r1 = await fetch(`${COO_AGENT}/api/v1/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'dev-key-change-in-production' },
+        body: JSON.stringify({ question: 'What is our current ARR?', company_id: COMPANY_ID, persona: ACTIVE_ROLE, session_id: 'e2e-session-001' }),
+      });
+      const d1 = await r1.json();
+
+      const r2 = await fetch(`${COO_AGENT}/api/v1/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'dev-key-change-in-production' },
+        body: JSON.stringify({ question: 'How does that compare to last quarter?', company_id: COMPANY_ID, persona: ACTIVE_ROLE, session_id: 'e2e-session-001' }),
+      });
+      const d2 = await r2.json();
+      result = { ...d2, call_trace: [...(d1.call_trace || []), ...(d2.call_trace || [])] };
+    } else {
+      const r = await fetch(`${COO_AGENT}/api/v1/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'dev-key-change-in-production' },
+        body: JSON.stringify({ question: t.question, company_id: COMPANY_ID, persona: ACTIVE_ROLE }),
+      });
+      result = await r.json();
+    }
+
+    const pass = checkAssertions(t, result, ACTIVE_ROLE);
+    state[ACTIVE_ROLE][id] = { status: pass ? 'pass' : 'fail', result };
+  } catch (err) {
+    state[ACTIVE_ROLE][id] = { status: 'fail', result: { answer: `Error: ${err.message}`, call_trace: [], agents_used: [], total_ms: 0 } };
+  }
+
+  renderSidebar();
+  if (selectedId === id) renderDetail(id);
+}
+
+function checkAssertions(t, result, role) {
+  const answer   = result.answer || '';
+  const trace    = result.call_trace || [];
+  const low      = answer.toLowerCase();
+  const hasNums  = /\d+(?:[.,]\d+)?/.test(answer);
+  const hasPct   = /\d+(?:\.\d+)?\s*%/.test(answer);
+  const hasCurr  = /[$€£]\s*[\d,]+|\d+[KMB]\s*(?:ARR|MRR|revenue)/i.test(answer);
+  // Extract KPI IDs from the new structured request schema (request.query_params.kpi_ids[])
+  const traceKpis = trace
+    .filter(s => s.service === 'kpi-engine')
+    .map(s => {
+      const ids = s.request?.query_params?.kpi_ids;
+      if (Array.isArray(ids)) return ids.join(' ');
+      return s.request?.query_params?.kpi_ids || s.params || '';
+    })
+    .join(' ');
+  const hasNeo4j  = trace.some(s => s.service === 'neo4j');
+
+  const rd = t.roleData[role];
+  // Role-specific assertions per test
+  switch (t.id) {
+    case 1: return 'answer' in result && answer.length >= 50 && hasNums;
+    case 2: return hasNums;
+    case 3: {
+      if (role === 'cfo') return !traceKpis.includes('KPI-037') && !traceKpis.includes('KPI-038');
+      return traceKpis.includes('KPI-037') || traceKpis.includes('KPI-038');
+    }
+    case 4: {
+      if (role === 'cfo') return !hasNeo4j;
+      return hasNeo4j;
+    }
+    case 5: {
+      if (role === 'cto' || role === 'eng_lead') return !hasCurr && !low.includes('$2,523');
+      return hasNums && (hasCurr || low.includes('arr') || low.includes('mrr'));
+    }
+    case 6: {
+      if (role === 'eng_lead') return low.includes('not available') || low.includes('outside') || low.includes('scope');
+      return hasPct || low.includes('churn');
+    }
+    case 7: {
+      if (role === 'cto') return hasNums && (low.includes('deploy') || low.includes('velocity'));
+      if (role === 'cfo') return hasNums && (low.includes('arr') || low.includes('burn') || hasCurr);
+      if (role === 'eng_lead') return hasNums && !hasCurr;
+      // coo: must have both
+      const hasEng = ['deploy','velocity','sprint','mttr'].some(w => low.includes(w));
+      const hasFin = ['runway','burn','arr','mrr','revenue'].some(w => low.includes(w));
+      return hasNums && hasEng && hasFin;
+    }
+    case 8: return answer.includes('NovaSpark') || hasNums;
+    case 9: {
+      const compTerms = ['quarter','compared','previous','last','higher','lower','more','less'];
+      return compTerms.some(w => low.includes(w)) || hasNums;
+    }
+    default: return 'answer' in result;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Run all (current role)
+// ---------------------------------------------------------------------------
+let runAllActive = false;
+async function runAll() {
+  if (runAllActive) return;
+  runAllActive = true;
+  document.getElementById('run-all-btn').disabled = true;
+
+  for (const t of TESTS.filter(t => !t.skipped)) {
+    if (selectedId !== t.id) selectTest(t.id);
+    await runTest(t.id);
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  runAllActive = false;
+  document.getElementById('run-all-btn').disabled = false;
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+renderSidebar();
+</script>
+</body>
+</html>
