@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shadow COO — E2E Test Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222636;
+      --border: #2e3248;
+      --pass: #22c55e;
+      --skip: #f59e0b;
+      --fail: #ef4444;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --accent: #6366f1;
+      --accent2: #8b5cf6;
+      --arrow: #475569;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #1a1d27 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+    header h1 span { color: var(--accent); }
+    .run-meta { font-size: 0.78rem; color: var(--muted); }
+
+    /* ── Layout ── */
+    main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── Summary bar ── */
+    .summary {
+      display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .stat {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 24px;
+      display: flex; flex-direction: column; gap: 4px; min-width: 120px;
+    }
+    .stat .val { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .stat .lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .pass-val { color: var(--pass); }
+    .skip-val { color: var(--skip); }
+    .fail-val { color: var(--fail); }
+    .total-val { color: var(--accent); }
+
+    /* ── Two-col layout ── */
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media(max-width: 960px) { .cols { grid-template-columns: 1fr; } }
+
+    /* ── Section card ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .card-header {
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface2);
+    }
+    .card-header .icon { font-size: 1.1rem; }
+    .card-header h2 { font-size: 0.9rem; font-weight: 600; }
+    .card-header .badge {
+      margin-left: auto; font-size: 0.7rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 999px;
+    }
+    .badge-pass { background: #14532d; color: var(--pass); }
+    .badge-mixed { background: #451a03; color: var(--skip); }
+
+    /* ── Test list ── */
+    .test-list { padding: 8px 0; }
+    .test-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 20px; font-size: 0.78rem;
+      border-bottom: 1px solid #1e2235;
+      transition: background 0.1s;
+    }
+    .test-row:last-child { border-bottom: none; }
+    .test-row:hover { background: var(--surface2); }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .dot-pass { background: var(--pass); box-shadow: 0 0 6px var(--pass); }
+    .dot-skip { background: var(--skip); box-shadow: 0 0 6px var(--skip); }
+    .dot-fail { background: var(--fail); box-shadow: 0 0 6px var(--fail); }
+    .test-name { flex: 1; color: var(--text); }
+    .test-status { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; width: 44px; text-align: right; }
+    .status-pass { color: var(--pass); }
+    .status-skip { color: var(--skip); }
+    .status-fail { color: var(--fail); }
+
+    /* ── Call chain ── */
+    .chain-wrap { padding: 20px; }
+    .chain-title { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 16px; }
+    .chain { display: flex; flex-direction: column; gap: 0; }
+    .chain-step {
+      display: flex; align-items: stretch; gap: 0;
+    }
+    .chain-left {
+      display: flex; flex-direction: column; align-items: center; width: 28px; flex-shrink: 0;
+    }
+    .chain-dot {
+      width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+      border: 2px solid; margin-top: 14px;
+    }
+    .chain-line {
+      width: 2px; flex: 1; background: var(--border); margin: 0 auto;
+    }
+    .chain-step:last-child .chain-line { display: none; }
+    .chain-body {
+      flex: 1; padding: 10px 0 10px 12px; padding-bottom: 18px;
+    }
+    .chain-service {
+      font-size: 0.82rem; font-weight: 600; margin-bottom: 3px;
+    }
+    .chain-calls {
+      display: flex; flex-direction: column; gap: 3px; margin-top: 6px;
+    }
+    .chain-call {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.71rem; color: var(--muted);
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 4px 10px;
+    }
+    .chain-call .method {
+      font-weight: 700; font-size: 0.65rem;
+      padding: 1px 5px; border-radius: 4px; flex-shrink: 0;
+    }
+    .method-get { background: #1e3a5f; color: #60a5fa; }
+    .method-post { background: #1a3326; color: #4ade80; }
+    .method-bolt { background: #2d1a4e; color: #a78bfa; }
+    .chain-call .result { margin-left: auto; color: var(--pass); font-weight: 600; font-size: 0.68rem; }
+
+    /* ── Progress bar ── */
+    .progress-wrap { margin-bottom: 24px; }
+    .progress-bar {
+      height: 6px; border-radius: 999px; overflow: hidden;
+      background: var(--border); margin-top: 8px;
+      display: flex;
+    }
+    .progress-pass { background: var(--pass); }
+    .progress-skip { background: var(--skip); }
+    .progress-fail { background: var(--fail); }
+    .progress-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 2px; margin-bottom: 20px; background: var(--surface2); border-radius: 8px; padding: 3px; }
+    .tab {
+      flex: 1; text-align: center; padding: 7px; border-radius: 6px;
+      font-size: 0.78rem; font-weight: 500; cursor: pointer;
+      color: var(--muted); transition: all 0.15s;
+      border: none; background: transparent;
+    }
+    .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Full-width chain section ── */
+    .chain-section { margin-top: 24px; }
+    .chain-flow {
+      display: flex; align-items: center; gap: 0; flex-wrap: wrap;
+      padding: 24px; overflow-x: auto;
+    }
+    .flow-node {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px; min-width: 130px;
+      flex-shrink: 0;
+    }
+    .flow-node .fn { font-size: 0.7rem; color: var(--muted); margin-bottom: 4px; }
+    .flow-node .fs { font-size: 0.85rem; font-weight: 600; }
+    .flow-node .fp { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
+    .flow-arrow {
+      font-size: 1.2rem; color: var(--arrow); padding: 0 6px; flex-shrink: 0;
+    }
+    .flow-node.highlight { border-color: var(--accent); background: #1e1b4b; }
+    .flow-node.db { border-color: #d97706; background: #1c1409; }
+    .flow-node.neo4j { border-color: #059669; background: #052e16; }
+
+    .scenario-list { display: flex; flex-direction: column; gap: 20px; }
+    .scenario {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden;
+    }
+    .scenario-header {
+      padding: 12px 18px; background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .scenario-header .snum {
+      background: var(--accent); color: white;
+      width: 22px; height: 22px; border-radius: 50%;
+      font-size: 0.7rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .scenario-header h3 { font-size: 0.85rem; font-weight: 600; }
+    .scenario-steps { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+    .step {
+      display: flex; align-items: center; gap: 10px; font-size: 0.76rem;
+    }
+    .step-num {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--border); color: var(--muted);
+      font-size: 0.65rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .step-arrow { color: var(--arrow); flex-shrink: 0; }
+    .step-service { font-weight: 600; color: var(--accent); min-width: 120px; }
+    .step-detail { color: var(--muted); flex: 1; }
+    .step-result { color: var(--pass); font-weight: 600; font-size: 0.7rem; margin-left: auto; }
+    .step-connector {
+      margin-left: 10px; padding-left: 10px;
+      border-left: 2px solid var(--border);
+      font-size: 0.7rem; color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Shadow <span>COO</span> — E2E Test Dashboard</h1>
+    <div class="run-meta">Run at: <span id="run-time"></span> &nbsp;·&nbsp; Startup Company: NovaSpark Technologies</div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <div class="stat" style="padding:10px 16px;min-width:unset">
+      <div class="val total-val" style="font-size:1.4rem">52</div>
+      <div class="lbl">passed</div>
+    </div>
+    <div class="stat" style="padding:10px 16px;min-width:unset">
+      <div class="val skip-val" style="font-size:1.4rem">2</div>
+      <div class="lbl">skipped</div>
+    </div>
+    <div class="stat" style="padding:10px 16px;min-width:unset">
+      <div class="val fail-val" style="font-size:1.4rem">0</div>
+      <div class="lbl">failed</div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Progress bar -->
+  <div class="progress-wrap">
+    <div class="progress-label">
+      <span>52 passed · 2 skipped · 0 failed · 54 total</span>
+      <span>96.3% pass rate</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-pass" style="width:96.3%"></div>
+      <div class="progress-skip" style="width:3.7%"></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('results')">Test Results</button>
+    <button class="tab" onclick="switchTab('chain')">Call Chain</button>
+  </div>
+
+  <!-- ══════════ TAB: RESULTS ══════════ -->
+  <div id="tab-results" class="tab-panel active">
+    <div class="cols">
+
+      <!-- Test 0 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="icon">❤️</span>
+          <h2>test_0 — Service Health</h2>
+          <span class="badge badge-pass">11/11 PASS</span>
+        </div>
+        <div class="test-list">
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">service_health[rbac-/health]</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">service_health[graph-/health]</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">service_health[kpi_registry-/health]</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">service_health[kpi_engine-/healthz]</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">service_health[memory-/health]</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">neo4j_reachable</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">postgres_reachable</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">rbac_api_prefix</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">kpi_registry_catalog_reachable</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">kpi_engine_registry_reachable</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">graph_persons_endpoint_reachable</span><span class="test-status status-pass">PASS</span></div>
+        </div>
+      </div>
+
+      <!-- Test 1 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="icon">🔧</span>
+          <h2>test_1 — Data Pipeline</h2>
+          <span class="badge badge-pass">23/23 PASS</span>
+        </div>
+        <div class="test-list">
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">canonical_employees_seeded</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">canonical_dev_items_seeded</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">canonical_accounts_seeded</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">canonical_incidents_seeded</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">employees_have_required_fields</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">all_three_companies_seeded</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">person_nodes_in_neo4j</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">task_nodes_in_neo4j</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">customer_nodes_in_neo4j</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">person_task_relationships_exist</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">graph_api_persons_endpoint</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">graph_api_tasks_endpoint</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">graph_api_blocker_chain</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">kpi_registry_lists_176_kpis</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">kpi_catalog_from_registry_service</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">kpi_timeseries_value[KPI-001 ARR]</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">kpi_timeseries_value[KPI-002 MRR]</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">kpi_timeseries_value[KPI-047]</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">kpi_timeseries_value[KPI-021]</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">batch_compute_endpoint_accepts</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">validate_formula_endpoint</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">employee_count_postgres_matches_neo4j</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">graph_api_count_matches_neo4j_direct</span><span class="test-status status-pass">PASS</span></div>
+        </div>
+      </div>
+
+      <!-- Test 2 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="icon">🔐</span>
+          <h2>test_2 — RBAC Chain</h2>
+          <span class="badge badge-pass">11/11 PASS</span>
+        </div>
+        <div class="test-list">
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">unauthenticated_request_is_rejected</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">full_catalog_returned_for_system_user</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">catalog_has_engineering_kpis</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">catalog_has_finance_kpis</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">catalog_category_filter_is_exclusive</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">kpi_access_check_via_rbac</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">role_creation_and_retrieval</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">bucket_creation</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">role_bucket_access_grant</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">user_context_endpoint_exists</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">bulk_access_check_endpoint</span><span class="test-status status-pass">PASS</span></div>
+        </div>
+      </div>
+
+      <!-- Test 3 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="icon">🤖</span>
+          <h2>test_3 — COO Brief (Agent)</h2>
+          <span class="badge badge-mixed">7/9 · 2 skip</span>
+        </div>
+        <div class="test-list">
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">engineering_health_returns_answer</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">engineering_answer_contains_numbers</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-skip"></div><span class="test-name">engineering_answer_used_kpi_tool</span><span class="test-status status-skip">SKIP</span></div>
+          <div class="test-row"><div class="dot dot-skip"></div><span class="test-name">engineering_answer_used_graph_tool</span><span class="test-status status-skip">SKIP</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">financial_summary_contains_revenue</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">churn_question_returns_percentage</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">broad_question_routes_to_multi_agents</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">answer_does_not_hallucinate_company</span><span class="test-status status-pass">PASS</span></div>
+          <div class="test-row"><div class="dot dot-pass"></div><span class="test-name">follow_up_references_previous_context</span><span class="test-status status-pass">PASS</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════ TAB: CALL CHAIN ══════════ -->
+  <div id="tab-chain" class="tab-panel">
+
+    <!-- Architecture flow -->
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header"><span class="icon">🗺️</span><h2>Service Architecture</h2></div>
+      <div class="chain-flow">
+        <div class="flow-node highlight">
+          <div class="fn">E2E Tests</div>
+          <div class="fs">pytest suite</div>
+          <div class="fp">localhost</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node highlight">
+          <div class="fn">API Gateway / Auth</div>
+          <div class="fs">rbac-service</div>
+          <div class="fp">:8007</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="fn">KPI Catalog</div>
+          <div class="fs">kpi-registry</div>
+          <div class="fp">:8004</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="fn">KPI Compute</div>
+          <div class="fs">kpi-engine</div>
+          <div class="fp">:8005</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node neo4j">
+          <div class="fn">Graph DB</div>
+          <div class="fs">Neo4j</div>
+          <div class="fp">bolt :7687</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node neo4j">
+          <div class="fn">Graph API</div>
+          <div class="fs">graph-service</div>
+          <div class="fp">:8003</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node highlight">
+          <div class="fn">COO Agent</div>
+          <div class="fs">coo-orchestrator</div>
+          <div class="fp">:8008</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node db">
+          <div class="fn">Primary DB</div>
+          <div class="fs">PostgreSQL</div>
+          <div class="fp">:5432</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scenario call chains -->
+    <div class="scenario-list">
+
+      <!-- Scenario 1 -->
+      <div class="scenario">
+        <div class="scenario-header">
+          <div class="snum">1</div>
+          <h3>Health Check — Service Liveness</h3>
+        </div>
+        <div class="scenario-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">rbac-service</span>
+            <span class="step-detail">GET /health → {"status":"ok"}</span>
+            <span class="step-result">✓ 200</span>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">graph-service</span>
+            <span class="step-detail">GET /health → service up</span>
+            <span class="step-result">✓ 200</span>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">kpi-registry</span>
+            <span class="step-detail">GET /health</span>
+            <span class="step-result">✓ 200</span>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">kpi-engine</span>
+            <span class="step-detail">GET /healthz</span>
+            <span class="step-result">✓ 200</span>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">Neo4j</span>
+            <span class="step-detail">bolt://localhost:7687 — driver.verify_connectivity()</span>
+            <span class="step-result">✓ OK</span>
+          </div>
+          <div class="step">
+            <div class="step-num">6</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">PostgreSQL</span>
+            <span class="step-detail">SELECT 1 via SQLAlchemy</span>
+            <span class="step-result">✓ OK</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario 2 -->
+      <div class="scenario">
+        <div class="scenario-header">
+          <div class="snum">2</div>
+          <h3>Data Pipeline — Canonical Data + Graph Sync</h3>
+        </div>
+        <div class="scenario-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">PostgreSQL</span>
+            <span class="step-detail">SELECT count(*) FROM canonical_persons WHERE company_id=startup → 20 rows</span>
+            <span class="step-result">✓ ≥15</span>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">PostgreSQL</span>
+            <span class="step-detail">SELECT from canonical_tasks, canonical_customers, canonical_incidents</span>
+            <span class="step-result">✓ seeded</span>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">Neo4j</span>
+            <span class="step-detail">MATCH (p:Person {company_id:…}) → 20 nodes w/ external_source_id</span>
+            <span class="step-result">✓ 20</span>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">Neo4j</span>
+            <span class="step-detail">MATCH ()-[r]->() → 3,504 relationships, 11 types</span>
+            <span class="step-result">✓ OWNS, RAISED_BY…</span>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">graph-service</span>
+            <span class="step-detail">GET /api/v1/persons?company_id=… → person list</span>
+            <span class="step-result">✓ 200</span>
+          </div>
+          <div class="step">
+            <div class="step-num">6</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">kpi-registry</span>
+            <span class="step-detail">GET /api/v1/kpis → 176 KPI definitions</span>
+            <span class="step-result">✓ 176</span>
+          </div>
+          <div class="step">
+            <div class="step-num">7</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">kpi-engine</span>
+            <span class="step-detail">GET /api/v1/kpis/timeseries?kpi_ids=KPI-001 → ARR $2,523,752</span>
+            <span class="step-result">✓ in range</span>
+          </div>
+          <div class="step">
+            <div class="step-num">8</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">PostgreSQL + Neo4j</span>
+            <span class="step-detail">Cross-check: SELECT count(*) FROM canonical_persons = MATCH count(p:Person)</span>
+            <span class="step-result">✓ 20 = 20</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario 3 -->
+      <div class="scenario">
+        <div class="scenario-header">
+          <div class="snum">3</div>
+          <h3>RBAC Chain — Auth → Catalog → Access Control</h3>
+        </div>
+        <div class="scenario-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">kpi-registry</span>
+            <span class="step-detail">GET /api/v1/kpis (no auth) → 401/403/timeout</span>
+            <span class="step-result">✓ rejected</span>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">kpi-registry</span>
+            <span class="step-detail">GET /api/v1/kpis?category=engineering (X-API-Key) → engineering KPIs</span>
+            <span class="step-result">✓ ≥1</span>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">rbac-service</span>
+            <span class="step-detail">POST /api/v1/roles {name:"E2E Role"} → role_id</span>
+            <span class="step-result">✓ created</span>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">rbac-service</span>
+            <span class="step-detail">POST /api/v1/buckets {name:"E2E Bucket"} → bucket_id</span>
+            <span class="step-result">✓ created</span>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">rbac-service</span>
+            <span class="step-detail">POST /api/v1/role-bucket-access {role_id, bucket_id, read_access:true}</span>
+            <span class="step-result">✓ granted</span>
+          </div>
+          <div class="step">
+            <div class="step-num">6</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">rbac-service</span>
+            <span class="step-detail">GET /api/v1/users/{user_id}/access → user context</span>
+            <span class="step-result">✓ 200</span>
+          </div>
+          <div class="step">
+            <div class="step-num">7</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">rbac-service</span>
+            <span class="step-detail">POST /api/v1/users/{user_id}/access/bulk → bulk access check</span>
+            <span class="step-result">✓ 200</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario 4 -->
+      <div class="scenario">
+        <div class="scenario-header">
+          <div class="snum">4</div>
+          <h3>COO Agent — Natural Language → Real Data</h3>
+        </div>
+        <div class="scenario-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">coo-orchestrator</span>
+            <span class="step-detail">POST /api/v1/ask {"question":"How is Engineering performing?"}</span>
+            <span class="step-result">✓ answer</span>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <span class="step-arrow" style="visibility:hidden">→</span>
+            <span class="step-service" style="color:var(--muted)">↳ routes to</span>
+            <span class="step-detail">engineering handler — detects "engineer" keyword</span>
+            <span class="step-result"></span>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">kpi-engine</span>
+            <span class="step-detail">GET /timeseries?kpi_ids=KPI-037,KPI-038,KPI-039 → deploy freq, MTTR, velocity</span>
+            <span class="step-result">✓ numbers</span>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">Neo4j</span>
+            <span class="step-detail">MATCH (p:Person)←[:OWNS]-(t:Task) RETURN name, count ORDER BY desc LIMIT 3</span>
+            <span class="step-result">✓ top 3</span>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">coo-orchestrator</span>
+            <span class="step-detail">POST /api/v1/ask {"question":"What is our ARR?"} → $2,523,752</span>
+            <span class="step-result">✓ $ARR</span>
+          </div>
+          <div class="step">
+            <div class="step-num">6</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">kpi-engine</span>
+            <span class="step-detail">GET /timeseries?kpi_ids=KPI-001,KPI-002,KPI-005,KPI-021 → ARR, MRR, Burn, Churn</span>
+            <span class="step-result">✓ all values</span>
+          </div>
+          <div class="step">
+            <div class="step-num">7</div>
+            <span class="step-arrow">→</span>
+            <span class="step-service">coo-orchestrator</span>
+            <span class="step-detail">POST /api/v1/ask {cross-domain question} → agents_used: ["engineering","finance"]</span>
+            <span class="step-result">✓ ≥2 agents</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+  document.getElementById('run-time').textContent = new Date().toLocaleString();
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+
+</body>
+</html>
